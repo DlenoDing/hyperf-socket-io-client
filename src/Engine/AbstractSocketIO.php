@@ -21,13 +21,13 @@ use Dleno\SocketIOClient\Exception\MalformedUrlException;
 
 abstract class AbstractSocketIO implements EngineInterface
 {
-    const CONNECT = 0;
-    const DISCONNECT = 1;
-    const EVENT = 2;
-    const ACK = 3;
-    const ERROR = 4;
+    const CONNECT      = 0;
+    const DISCONNECT   = 1;
+    const EVENT        = 2;
+    const ACK          = 3;
+    const ERROR        = 4;
     const BINARY_EVENT = 5;
-    const BINARY_ACK = 6;
+    const BINARY_ACK   = 6;
 
     /** @var string[] Parse url result */
     protected $url;
@@ -83,14 +83,17 @@ abstract class AbstractSocketIO implements EngineInterface
     /** {@inheritDoc} */
     public function of($namespace)
     {
-        $this->namespace = $namespace;
+        $this->namespace  = $namespace;
     }
 
     /** {@inheritDoc} */
-    protected function getNameSpace()
+    protected function getNameSpace($query = [])
     {
         $namespace = $this->namespace;
         if ('' !== $namespace) {
+            if ($query) {
+                $namespace = sprintf('%s?%s', $namespace, http_build_query($query));
+            }
             $namespace .= ',';
         }
         return $namespace;
@@ -124,10 +127,10 @@ abstract class AbstractSocketIO implements EngineInterface
          * opcode... We're not interested in them. Yet.
          * the second byte contains the mask bit and the payload's length
          */
-        $data = fread($this->stream, 2);
+        $data  = fread($this->stream, 2);
         $bytes = unpack('C*', $data);
 
-        $mask = ($bytes[2] & 0b10000000) >> 7;
+        $mask   = ($bytes[2] & 0b10000000) >> 7;
         $length = $bytes[2] & 0b01111111;
 
         /*
@@ -146,7 +149,7 @@ abstract class AbstractSocketIO implements EngineInterface
                 break;
 
             case 0x7E: // 126
-                $data .= $bytes = fread($this->stream, 2);
+                $data  .= $bytes = fread($this->stream, 2);
                 $bytes = unpack('n', $bytes);
 
                 if (empty($bytes[1])) {
@@ -181,7 +184,7 @@ abstract class AbstractSocketIO implements EngineInterface
 
         // Split the packet in case of the length > 16kb
         while ($length > 0 && $buffer = fread($this->stream, $length)) {
-            $data .= $buffer;
+            $data   .= $buffer;
             $length -= strlen($buffer);
         }
 

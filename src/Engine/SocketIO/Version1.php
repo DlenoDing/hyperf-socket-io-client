@@ -32,6 +32,7 @@ class Version1 extends AbstractSocketIO
     const KEY                 = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
     protected $isHandShake = false;
+    protected $isHyperf    = false;
 
     protected $multiHeader = [
         'Set-Cookie',
@@ -100,12 +101,18 @@ class Version1 extends AbstractSocketIO
         if (!is_resource($this->stream)) {
             return;
         }
-        $this->write(EngineInterface::MESSAGE, EngineInterface::CLOSE);
+        //支持的关闭协议不一样
+        if ($this->isHyperf) {
+            $this->write(EngineInterface::MESSAGE, EngineInterface::CLOSE);
+        } else {
+            $this->write(EngineInterface::CLOSE);
+        }
+
         fclose($this->stream);
-        $this->stream      = null;
-        $this->session     = null;
-        $this->cookies     = [];
-        
+        $this->stream  = null;
+        $this->session = null;
+        $this->cookies = [];
+
     }
 
     /** {@inheritDoc} */
@@ -122,8 +129,14 @@ class Version1 extends AbstractSocketIO
     public function of($namespace)
     {
         parent::of($namespace);
-        $namespace = $this->getNameSpace();
+        $namespace = $this->getNameSpace($this->url['query']);
+
         $this->write(EngineInterface::MESSAGE, static::CONNECT . $namespace);
+        $this->read();//40
+        $result = $this->read();
+        if ($result != EngineInterface::MESSAGE . static::CONNECT . $this->getNameSpace()) {
+            throw new ServerConnectionFailureException(sprintf('NameSpace is Error, Accept: "%s"', $result));
+        }
     }
 
     /** {@inheritDoc} */
@@ -254,7 +267,11 @@ class Version1 extends AbstractSocketIO
             if (preg_match('/^Set-Cookie:\s*([^;]*)/i', $result, $matches)) {
                 $cookies[] = $matches[1];
             }
-            $result = explode(': ', trim($result, "\r\n"));
+            $result    = explode(': ', trim($result, "\r\n"));
+            if ($result[0] == 'Sec-Websocket-Accept') {//正常协议是：Sec-WebSocket-Accept
+                $this->isHyperf = true;
+            }
+            $result[0] = strtolower($result[0]);//hyperf和其他有大小写不一致问题
             if (in_array($result[0], $this->multiHeader)) {
                 $acceptHeaders[$result[0]][] = $result[1];
             } else {
@@ -264,12 +281,12 @@ class Version1 extends AbstractSocketIO
 
         //验证Sec-Websocket-Accept
         $expectedResonse = base64_encode(pack('H*', sha1($key . static::KEY)));
-        if ($acceptHeaders['Sec-Websocket-Accept'] !== $expectedResonse) {
-            throw new ServerConnectionFailureException('Sec-WebSocket-Accept is Error!');
+        if ($acceptHeaders['sec-websocket-accept'] !== $expectedResonse) {
+            throw new ServerConnectionFailureException('sec-websocket-accept is Error!');
         }
         //验证Sec-WebSocket-Version
-        if ($acceptHeaders['Sec-Websocket-Version'] != static::VERSION) {
-            throw new ServerConnectionFailureException('Sec-WebSocket-Version is Error!');
+        if (isset($acceptHeaders['sec-websocket-version']) && $acceptHeaders['sec-websocket-version'] != static::VERSION) {
+            throw new ServerConnectionFailureException('sec-websocket-version is Error!');
         }
 
         //获取cookie
@@ -282,7 +299,6 @@ class Version1 extends AbstractSocketIO
         }
         $handShake     = json_decode(substr($handShake, 1), true);
         $this->session = new Session($handShake['sid'], $handShake['pingInterval'], $handShake['pingTimeout'], $handShake['upgrades']);
-
         //标记握手成功
         $this->isHandShake = true;
     }
