@@ -24,7 +24,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Dleno\\SocketIOClient": "src/"
+            "Dleno\\SocketIOClient\\": "src/"
         }
     },
     "config": {
