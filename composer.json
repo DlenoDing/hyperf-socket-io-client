@@ -1,0 +1,42 @@
+{
+    "name": "dleno/hyperf-socket-io-client",
+    "type": "library",
+    "description": "websocket-io client(PHP)",
+    "keywords": ["hyperf", "swoole", "socket-io client"],
+    "license": "MIT",
+    "homepage": "https://www.dlenos.com",
+    "authors": [
+        {
+            "name": "dleno",
+            "email": "dleno@126.com",
+            "homepage": "https://www.dlenos.com",
+            "role": "Maintainer"
+        }
+    ],
+    "require": {
+        "php": ">=7.2",
+        "ext-swoole": ">=4.5",
+        "psr/log": "~1.0",
+        "hyperf/utils": "~2.0.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^7.0.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Dleno\\SocketIOClient": "src/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "extra": [],
+    "bin": [
+    ],
+    "scripts": {
+        "cs-fix": "php-cs-fixer fix $1",
+        "test": "phpunit --colors=always"
+    }
+}
