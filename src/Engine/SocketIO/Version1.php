@@ -12,7 +12,6 @@
 namespace Dleno\SocketIOClient\Engine\SocketIO;
 
 
-use Hyperf\Utils\Coroutine;
 use InvalidArgumentException;
 use Dleno\SocketIOClient\EngineInterface;
 use Dleno\SocketIOClient\Payload\Encoder;
@@ -27,9 +26,11 @@ use Dleno\SocketIOClient\Exception\ServerConnectionFailureException;
  */
 class Version1 extends AbstractSocketIO
 {
-    const TRANSPORT_WEBSOCKET = 'websocket';
-    const VERSION             = '13';
-    const KEY                 = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+    const KEEP_ALIVE_TYPE_HYPERF = 1;
+    const KEEP_ALIVE_TYPE_SWOOLE = 2;
+    const TRANSPORT_WEBSOCKET    = 'websocket';
+    const VERSION                = '13';
+    const KEY                    = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
     protected $isHandShake = false;
     protected $isHyperf    = false;
@@ -82,7 +83,7 @@ class Version1 extends AbstractSocketIO
     /** {@inheritDoc} */
     public function keepAlive()
     {
-        Coroutine::create(function () {
+        $callBack = function () {
             while (true) {
                 if ($this->isHandShake && $this->session instanceof Session) {
                     \Swoole\Coroutine::sleep($this->session->interval);
@@ -91,7 +92,12 @@ class Version1 extends AbstractSocketIO
                     break;
                 }
             }
-        });
+        };
+        if ($this->options['keepAliveType'] == static::KEEP_ALIVE_TYPE_HYPERF) {
+            \Hyperf\Utils\Coroutine::create($callBack);
+        } else {
+            \Swoole\Coroutine::create($callBack);
+        }
     }
 
     /** {@inheritDoc} */
@@ -167,9 +173,10 @@ class Version1 extends AbstractSocketIO
     /** {@inheritDoc} */
     protected function getDefaultOptions()
     {
-        $defaults              = parent::getDefaultOptions();
-        $defaults['version']   = 3;
-        $defaults['transport'] = static::TRANSPORT_WEBSOCKET;
+        $defaults                  = parent::getDefaultOptions();
+        $defaults['version']       = 3;
+        $defaults['transport']     = static::TRANSPORT_WEBSOCKET;
+        $defaults['keepAliveType'] = static::KEEP_ALIVE_TYPE_HYPERF;
 
         return $defaults;
     }
@@ -267,7 +274,7 @@ class Version1 extends AbstractSocketIO
             if (preg_match('/^Set-Cookie:\s*([^;]*)/i', $result, $matches)) {
                 $cookies[] = $matches[1];
             }
-            $result    = explode(': ', trim($result, "\r\n"));
+            $result = explode(': ', trim($result, "\r\n"));
             if ($result[0] == 'Sec-Websocket-Accept') {//正常协议是：Sec-WebSocket-Accept
                 $this->isHyperf = true;
             }
