@@ -1,45 +1,41 @@
-var server     = require('http').createServer(),
-    io         = require('socket.io')(server),
-    logger     = require('winston'),
-    port       = 1337;
+var app = require('http').createServer(handler),
+    io = require('socket.io').listen(app),
+    fs = require('fs');
 
-// Logger config
-logger.remove(logger.transports.Console);
-logger.add(logger.transports.Console, { colorize: true, timestamp: true });
-logger.info('SocketIO > listening on port ' + port);
+app.listen(18888);
+io.set('log level', 1);//将socket.io中的debug信息关闭
 
-// set up initialization and authorization method
-io.use(function (socket, next) {
-    var auth = socket.request.headers.authorization;
-    if(auth){
-        const token = auth.replace("Bearer ", "");
-        logger.info("auth token", token);
-        // do some security check with token
-        // ...
+function handler (req, res) {
+    fs.readFile(__dirname + '/index.html',function (err, data) {
+        if (err) {
+            res.writeHead(500);
+            return res.end('Error loading index.html');
+        }
+        res.writeHead(200, {'Content-Type': 'text/html'});
+        res.end(data);
+    });
+}
 
-        return next();
-    }
-    else{
-        return next(new Error("no authorization header"));
-    }
-});
+io.of('/spread').on('connection', function (socket) {
+    console.log('connection');
 
-io.on('connection', function (socket){
-    var nb = 0;
-
-    logger.info('SocketIO > Connected socket ' + socket.id);
-    logger.info("X-My-Header", socket.handshake.headers['x-my-header']);
-
-    socket.on('broadcast', function (message) {
-        ++nb;
-        logger.info('SocketIO broadcast > ' + JSON.stringify(message));
+    socket.on('event', function (data) {
+        console.log(data);
+        return 'Event Received: ' + data;
     });
 
-    socket.on('disconnect', function () {
-        logger.info('SocketIO : Received ' + nb + ' messages');
-        logger.info('SocketIO > Disconnected socket ' + socket.id);
+    socket.on('say', function (data) {
+        console.log(socket.id +':'+ data);
+        io.of('/spread').emit('event', socket.id +':'+ data);
     });
+
+    socket.on('join-room', function (data) {
+        socket.join(data);
+        io.of('/spread').emit('event',  socket.id +':'+'join-room: '+data);
+    });
+
+    socket.on('disconnect', function (data) {
+        console.log(data);
+    });
+
 });
-
-server.listen(port);
-

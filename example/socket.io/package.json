@@ -1,12 +1,13 @@
 {
-    "name": "elephantIO_example_emitter_with_headers",
+    "name": "socket-io client example emitter with headers",
     "version": "1.0.0",
     "main": "server.js",
     "scripts": {
         "start": "supervisor --debug server.js"
     },
     "dependencies": {
-        "socket.io": "~2",
-        "winston": "*"
+        "fs": "0.0.1-security",
+        "http": "0.0.1-security",
+        "socket.io": "^2.3.0"
     }
 }
